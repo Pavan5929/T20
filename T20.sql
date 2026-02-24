@@ -77,6 +77,78 @@ and winner not in ('tied','no result')
 group by winner
 )as t
 where rk=1;
+-- head to head record between two selected teams
+SET @teamA = 'England';
+set @teamB= 'australia';
+
+select winner,count(*) as matches
+from t20i
+where (team1=@teamA and team2=@teamB) or (team1=@teamB and team2=@teamA) 
+group by winner;
+
+select *
+from T20I;
+
+-- identify the month in 2024 with highest number of t20I matches played.
+
+SELECT  YEAR(matchDate) AS yearplayed,
+        MONTH(matchDate) AS monthnumber,
+        MONTHNAME(matchDate) AS monthname,
+        count(*) as matchplayed
+FROM T20I
+WHERE YEAR(matchDate) = 2024
+group by month(matchDate), year(matchDate),MONTHNAME(matchDate)
+order by matchplayed desc;
+
+-- for each team, find how many they played in 2024 and their win percentage
+WITH cte_matches AS (
+    SELECT team, COUNT(*) AS match_played
+    FROM (
+        SELECT team1 AS team
+        FROM t20i
+        WHERE YEAR(matchDate) = 2024
+        
+        UNION ALL
+        
+        SELECT team2 AS team
+        FROM t20i
+        WHERE YEAR(matchDate) = 2024
+    ) AS t
+    GROUP BY team
+),
+
+cte_wins AS (
+    SELECT winner AS team, COUNT(*) AS wins
+    FROM t20i
+    WHERE YEAR(matchDate) = 2024
+      AND winner NOT IN ('tied','no result')
+    GROUP BY winner
+)
+
+SELECT 
+    m.team,
+    m.match_played,
+    IFNULL(w.wins, 0) AS wins,
+    w.wins*100.0/m.match_played as perc
+FROM cte_matches m
+LEFT JOIN cte_wins w
+ON m.team = w.team;
+
+-- identify the most successful team at each ground
+-- (team with most wins per ground);
+with cteinsperground as(
+select ground, winner, wins,rank() over (partition by ground order by wins desc) as rn
+from (
+    select ground, winner, count(*) as wins
+    from t20i
+    where winner not in ('tied','no result')
+    group by ground, winner
+) as match_wins
+)
+select ground,winner,wins as mostsuccessful
+from cteinsperground
+where rn=1
+order by ground;
 
 INSERT INTO T20I VALUES 
 ('West Indies','England','West Indies','5 wickets','2024-11-16','Gros Islet'),
